@@ -30,5 +30,5 @@ This is for you if you:
 ### 1. Clone this repo
 
 ```bash
-git clone https://github.com/Ik-cyber/java-scripts.git
+git clone https://github.com/Ik-cyber/Vanila-Java-Project-Setup.git
 ```
