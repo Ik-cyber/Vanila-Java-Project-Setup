@@ -1,0 +1,113 @@
+#!/bin/bash
+
+# Global Java Project Builder
+# Usage: build-java-project [project-directory]
+
+set -e
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+print_info() {
+  echo -e "${BLUE}ℹ️  $1${NC}"
+}
+
+print_success() {
+  echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_warning() {
+  echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+print_error() {
+  echo -e "${RED}❌ $1${NC}"
+}
+
+# Determine project directory
+if [ -n "$1" ]; then
+  PROJECT_DIR="$1"
+  if [ ! -d "$PROJECT_DIR" ]; then
+    print_error "Directory '$PROJECT_DIR' does not exist!"
+    exit 1
+  fi
+  cd "$PROJECT_DIR"
+else
+  PROJECT_DIR="$(pwd)"
+fi
+
+PROJECT_NAME=$(basename "$PROJECT_DIR")
+
+# Check if this looks like a Java project
+if [ ! -d "src" ]; then
+  print_error "No 'src' directory found in $PROJECT_DIR"
+  print_info "This doesn't appear to be a Java project created by create-java-project"
+  print_info "Expected structure: src/, out/, etc."
+  exit 1
+fi
+
+# Check if there are any Java files
+if [ -z "$(find src -name "*.java" 2>/dev/null)" ]; then
+  print_error "No Java files found in src/ directory"
+  exit 1
+fi
+
+print_info "Building Java project: $PROJECT_NAME"
+print_info "Project directory: $PROJECT_DIR"
+
+# Create output directory
+mkdir -p out
+
+# Find all Java files and compile them
+JAVA_FILES=$(find src -name "*.java")
+print_info "Found Java files:"
+for file in $JAVA_FILES; do
+  echo -e "${BLUE}  📄 $file${NC}"
+done
+
+# Compile with proper classpath handling
+print_info "Compiling..."
+if [ -d "lib" ] && [ "$(ls -A lib 2>/dev/null)" ]; then
+  # Include JAR files from lib directory
+  CLASSPATH="$(find lib -name "*.jar" -type f | tr '\n' ':' | sed 's/:$//')"
+  if javac -cp "$CLASSPATH" -d out $JAVA_FILES; then
+    print_success "Build successful! (with external libraries)"
+  else
+    print_error "Build failed!"
+    exit 1
+  fi
+else
+  # No external libraries
+  if javac -d out $JAVA_FILES; then
+    print_success "Build successful!"
+  else
+    print_error "Build failed!"
+    exit 1
+  fi
+fi
+
+# Try to determine main class
+MAIN_CLASS=""
+for java_file in $JAVA_FILES; do
+  if grep -q "public static void main" "$java_file"; then
+    MAIN_CLASS=$(basename "$java_file" .java)
+    break
+  fi
+done
+
+if [ -n "$MAIN_CLASS" ]; then
+  print_success "Main class detected: $MAIN_CLASS"
+  echo -e "${GREEN}👉 Run with: ${NC}run-java-project $PROJECT_DIR"
+  echo -e "${GREEN}👉 Or manually: ${NC}java -cp out $MAIN_CLASS"
+else
+  print_warning "No main method found in Java files"
+  print_info "Compiled classes available in out/ directory"
+fi
+
+# Show compiled classes
+print_info "Compiled classes:"
+find out -name "*.class" | sed 's/^/  📦 /'
